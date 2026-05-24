@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createApplication, hasApplied, getApplicationsByStudent, getApplicationsByJob, updateApplicationStatus } from "@/lib/db";
+import { createApplication, hasApplied, getApplicationsByStudent, getApplicationsByJob, updateApplicationStatus, getAllApplications } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const studentId = req.nextUrl.searchParams.get("student_id");
   const jobId = req.nextUrl.searchParams.get("job_id");
+  const all = req.nextUrl.searchParams.get("all");
 
+  if (all === "true") {
+    return NextResponse.json(getAllApplications());
+  }
   if (studentId) {
-    const apps = getApplicationsByStudent(parseInt(studentId));
-    return NextResponse.json(apps);
+    return NextResponse.json(getApplicationsByStudent(parseInt(studentId)));
   }
   if (jobId) {
-    const apps = getApplicationsByJob(parseInt(jobId));
-    return NextResponse.json(apps);
+    return NextResponse.json(getApplicationsByJob(parseInt(jobId)));
   }
-  return NextResponse.json({ error: "student_id or job_id required" }, { status: 400 });
+  return NextResponse.json({ error: "student_id, job_id, or all=true required" }, { status: 400 });
 }
 
 export async function POST(req: NextRequest) {

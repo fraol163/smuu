@@ -195,3 +195,7 @@ export function updateApplicationStatus(appId: number, status: DBApplication["st
   const app = db.applications.find((a) => a.id === appId);
   if (app) app.status = status;
 }
+
+export function getAllApplications(): DBApplication[] {
+  return getDB().applications.map(clone);
+}
