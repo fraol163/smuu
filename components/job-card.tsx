@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Job, Student, calculateMatchScore, formatSalary } from "@/lib/smu-utils";
 import { MatchScore } from "./match-score";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Building2, MapPin, Clock, Star, Users, Briefcase } from "lucide-react";
+import { Building2, MapPin, Clock, Star, Users, Briefcase, Send, CheckCircle, Loader2 } from "lucide-react";
 
 interface JobCardProps {
   job: Job;
@@ -18,7 +20,7 @@ export function JobCard({ job, student, showMatchScore = true }: JobCardProps) {
     ? calculateMatchScore(student, job)
     : null;
 
-  const jobTypeLabels = {
+  const jobTypeLabels: Record<string, string> = {
     internship: "Internship",
     full_time: "Full-Time",
     part_time: "Part-Time",
@@ -90,17 +92,23 @@ export function JobCard({ job, student, showMatchScore = true }: JobCardProps) {
             </div>
           </div>
 
-          {/* Match Score */}
-          {showMatchScore && matchBreakdown && (
-            <div className="flex-shrink-0 sm:ml-6 bg-black/40 p-4 rounded-sm border border-white/10 group-hover:border-primary/40 transition-all duration-700 shadow-2xl">
-              <MatchScore score={matchBreakdown.total} size="md" showLabel />
-              <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-center mt-3 text-primary/40">Academic Match</p>
-            </div>
-          )}
+          {/* Right side: Match Score + Quick Apply hint */}
+          <div className="flex flex-col items-center gap-4 flex-shrink-0 sm:ml-6">
+            {showMatchScore && matchBreakdown && (
+              <div className="bg-black/40 p-4 rounded-sm border border-white/10 group-hover:border-primary/40 transition-all duration-700 shadow-2xl">
+                <MatchScore score={matchBreakdown.total} size="md" showLabel />
+                <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-center mt-3 text-primary/40">Academic Match</p>
+              </div>
+            )}
+            {student && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-sm text-[10px] font-bold uppercase tracking-widest text-primary group-hover:bg-primary group-hover:text-background transition-all duration-500">
+                <Send className="h-3 w-3" />
+                View & Apply
+              </div>
+            )}
+          </div>
         </div>
       </Card>
     </Link>
   );
 }
-
-

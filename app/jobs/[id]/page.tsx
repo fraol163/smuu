@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { TranslationProvider, useTranslation } from "@/lib/translations";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { MOCK_JOBS, MOCK_APPLICATIONS } from "@/lib/mock-data";
+import { useTranslation } from "@/lib/translations";
+import { useAuth } from "@/lib/auth-context";
 import { Student, calculateMatchScore, formatSalary } from "@/lib/smu-utils";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -31,10 +30,10 @@ import {
   Clock,
   Users,
   Star,
-  Globe,
   Briefcase,
   CheckCircle,
   Loader2,
+  Send,
 } from "lucide-react";
 
 function JobDetailContent() {
@@ -45,9 +44,42 @@ function JobDetailContent() {
   const [isApplying, setIsApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [job, setJob] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const jobId = parseInt(params.id as string);
-  const job = MOCK_JOBS.find((j) => j.id === jobId);
+
+  useEffect(() => {
+    async function loadJob() {
+      try {
+        const res = await fetch(`/api/jobs?id=${jobId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setJob(data);
+        }
+      } catch {}
+      setLoading(false);
+    }
+    loadJob();
+
+    // Check if already applied
+    if (user && user.role === "student") {
+      fetch(`/api/applications?student_id=${user.id}`)
+        .then((r) => r.json())
+        .then((apps) => {
+          if (apps.some((a: any) => a.job_id === jobId)) setApplied(true);
+        })
+        .catch(() => {});
+    }
+  }, [jobId, user]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!job) {
     return (
@@ -66,14 +98,6 @@ function JobDetailContent() {
     );
   }
 
-  // Check if student has already applied
-  const hasApplied =
-    user?.role === "student" &&
-    MOCK_APPLICATIONS.some(
-      (app) => app.student_id === user.id && app.job_id === jobId
-    );
-
-  // Create student profile if logged in as student
   const studentProfile: Student | null =
     user && user.role === "student"
       ? {
@@ -96,14 +120,39 @@ function JobDetailContent() {
 
   const handleApply = async () => {
     setIsApplying(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setApplied(true);
+    try {
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          student_id: user!.id,
+          job_id: jobId,
+          cover_letter: coverLetter,
+          student_name: user!.name,
+          student_email: user!.email,
+          student_department: user!.department,
+          student_gpa: user!.gpa,
+          student_skills: user!.skills,
+          student_bio: user!.bio,
+          student_smu_id: user!.smu_id,
+          job_title: job.title,
+          company_name: job.company_name,
+        }),
+      });
+      if (res.ok) {
+        setApplied(true);
+        setDialogOpen(false);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Application failed");
+      }
+    } catch {
+      alert("Network error");
+    }
     setIsApplying(false);
-    setDialogOpen(false);
   };
 
-  const jobTypeLabels = {
+  const jobTypeLabels: Record<string, string> = {
     internship: "Internship",
     full_time: "Full-Time",
     part_time: "Part-Time",
@@ -114,7 +163,6 @@ function JobDetailContent() {
       <Navbar />
       <main className="flex-1 pb-24 pt-32 bg-grid-subtle">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          {/* Back Link */}
           <Link
             href="/jobs"
             className="mb-10 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground transition-all hover:text-primary hover:-translate-x-1"
@@ -126,7 +174,6 @@ function JobDetailContent() {
           <div className="grid gap-10 lg:grid-cols-3">
             {/* Main Content */}
             <div className="space-y-10 lg:col-span-2">
-              {/* Job Header */}
               <Card className="border-2 border-border bg-card shadow-sm rounded-sm overflow-hidden">
                 <div className="h-2 bg-primary w-full" />
                 <CardContent className="p-8">
@@ -167,7 +214,7 @@ function JobDetailContent() {
                     </div>
                     <div className="space-y-1">
                       <p className="opacity-60">Current Applicants</p>
-                      <p className="text-sm text-foreground">{job.application_count} Students</p>
+                      <p className="text-sm text-foreground">{job.application_count || 0} Students</p>
                     </div>
                     <div className="space-y-1 ml-auto">
                       <p className="opacity-60">Publication Date</p>
@@ -177,7 +224,6 @@ function JobDetailContent() {
                 </CardContent>
               </Card>
 
-              {/* Job Description */}
               <Card className="border-2 border-border bg-card rounded-sm shadow-sm">
                 <CardHeader className="p-8 pb-0">
                   <CardTitle className="text-xl font-serif font-bold">Institutional Brief</CardTitle>
@@ -189,14 +235,13 @@ function JobDetailContent() {
                 </CardContent>
               </Card>
 
-              {/* Requirements */}
               <Card className="border-2 border-border bg-card rounded-sm shadow-sm">
                 <CardHeader className="p-8 pb-0">
                   <CardTitle className="text-xl font-serif font-bold">Academic & Professional Requirements</CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">
                   <ul className="grid gap-4 sm:grid-cols-2">
-                    {job.requirements.map((req, index) => (
+                    {(job.requirements || []).map((req: string, index: number) => (
                       <li key={index} className="flex items-start gap-3 p-3 bg-secondary/30 rounded-sm border border-border/50">
                         <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                         <span className="text-sm font-medium text-foreground/80">{req}</span>
@@ -209,7 +254,6 @@ function JobDetailContent() {
 
             {/* Sidebar */}
             <div className="space-y-10">
-              {/* Match Score Card */}
               {matchBreakdown && (
                 <Card className="border-2 border-border bg-card rounded-sm overflow-hidden shadow-sm">
                   <div className="h-1 bg-accent w-full" />
@@ -230,23 +274,28 @@ function JobDetailContent() {
                 </Card>
               )}
 
-              {/* Apply Card */}
-              <Card className="border-2 border-border bg-card rounded-sm shadow-lg overflow-hidden sticky top-24">
+              {/* APPLY CARD — BIG AND VISIBLE */}
+              <Card className="border-2 border-primary/40 bg-card rounded-sm shadow-lg overflow-hidden sticky top-24">
+                <div className="h-2 bg-primary w-full" />
                 <CardContent className="p-8">
                   {!user ? (
                     <div className="text-center space-y-6">
+                      <Send className="mx-auto h-10 w-10 text-primary/40" />
                       <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                        Institutional access required to apply
+                        Sign in to apply for this position
                       </p>
-                      <Button asChild className="btn-editorial w-full h-12 font-bold">
-                        <Link href="/login">Authenticate Now</Link>
+                      <Button asChild className="btn-editorial w-full h-14 text-md font-bold" size="lg">
+                        <Link href="/login">
+                          <Send className="mr-2 h-5 w-5" />
+                          Sign In to Apply
+                        </Link>
                       </Button>
                     </div>
                   ) : user.role !== "student" ? (
                     <p className="text-center text-xs font-bold uppercase tracking-widest text-muted-foreground italic">
                       Restricted to verified student applicants.
                     </p>
-                  ) : hasApplied || applied ? (
+                  ) : applied ? (
                     <div className="text-center space-y-6">
                       <div className="mx-auto h-14 w-14 rounded-full bg-success/10 border-2 border-success flex items-center justify-center">
                         <CheckCircle className="h-8 w-8 text-success" />
@@ -264,24 +313,24 @@ function JobDetailContent() {
                   ) : (
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button className="btn-editorial w-full h-14 text-md font-bold" size="lg">
-                          <Briefcase className="mr-3 h-5 w-5" />
+                        <Button className="btn-editorial w-full h-16 text-lg font-bold shadow-[0_0_30px_rgba(191,155,48,0.3)]" size="lg">
+                          <Send className="mr-3 h-6 w-6" />
                           {t("action.apply")}
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-xl rounded-sm border-2">
                         <DialogHeader>
-                          <DialogTitle className="text-2xl font-serif font-bold">Submit Institutional Application</DialogTitle>
+                          <DialogTitle className="text-2xl font-serif font-bold">Submit Application</DialogTitle>
                           <DialogDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground mt-2">
-                            Applying for: {job.title}
+                            Applying for: {job.title} at {job.company_name}
                           </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-6 py-6">
                           <div className="space-y-3">
-                            <Label htmlFor="cover_letter" className="text-xs font-bold uppercase tracking-widest text-foreground">Personal Statement (Optional)</Label>
+                            <Label htmlFor="cover_letter" className="text-xs font-bold uppercase tracking-widest text-foreground">Cover Letter (Optional)</Label>
                             <Textarea
                               id="cover_letter"
-                              placeholder="Briefly state your academic focus and why you're a fit for this institutional role..."
+                              placeholder="Briefly state why you're a strong fit for this role..."
                               value={coverLetter}
                               onChange={(e) => setCoverLetter(e.target.value)}
                               rows={8}
@@ -301,10 +350,13 @@ function JobDetailContent() {
                             {isApplying ? (
                               <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Processing...
+                                Submitting...
                               </>
                             ) : (
-                              "Confirm Submission"
+                              <>
+                                <Send className="mr-2 h-4 w-4" />
+                                Confirm Application
+                              </>
                             )}
                           </Button>
                         </DialogFooter>
@@ -331,7 +383,7 @@ function JobDetailContent() {
                   </div>
                   <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-secondary/30 p-3 rounded-sm">
                     <MapPin className="h-4 w-4 text-primary" />
-                    <span>Addis Ababa, Ethiopia</span>
+                    <span>{job.location}, Ethiopia</span>
                   </div>
                 </CardContent>
               </Card>
@@ -345,11 +397,5 @@ function JobDetailContent() {
 }
 
 export default function JobDetailPage() {
-  return (
-    <TranslationProvider>
-      <AuthProvider>
-        <JobDetailContent />
-      </AuthProvider>
-    </TranslationProvider>
-  );
+  return <JobDetailContent />;
 }

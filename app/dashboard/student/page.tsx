@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TranslationProvider, useTranslation } from "@/lib/translations";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { MOCK_JOBS, MOCK_APPLICATIONS } from "@/lib/mock-data";
+import { useTranslation } from "@/lib/translations";
+import { useAuth } from "@/lib/auth-context";
 import { Student, calculateMatchScore } from "@/lib/smu-utils";
 import { Navbar } from "@/components/navbar";
 import { JobCard } from "@/components/job-card";
@@ -35,14 +34,29 @@ function StudentDashboardContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [isSaving, setIsSaving] = useState(false);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  // Profile edit state
   const [profileData, setProfileData] = useState({
     skills: user?.skills?.join(", ") || "",
     bio: user?.bio || "",
   });
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!user || user.role !== "student") return;
+
+    Promise.all([
+      fetch("/api/jobs").then((r) => r.json()),
+      fetch(`/api/applications?student_id=${user.id}`).then((r) => r.json()),
+    ]).then(([jobsData, appsData]) => {
+      setJobs(jobsData);
+      setApplications(appsData);
+      setLoadingData(false);
+    }).catch(() => setLoadingData(false));
+  }, [user]);
+
+  if (isLoading || loadingData) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -68,10 +82,9 @@ function StudentDashboardContent() {
     is_approved: user.is_approved,
   };
 
-  // Filter and sort jobs
-  const approvedJobs = MOCK_JOBS.filter((job) => job.is_approved);
+  const approvedJobs = jobs.filter((job: any) => job.is_approved);
   const filteredJobs = approvedJobs
-    .filter((job) => {
+    .filter((job: any) => {
       const matchesSearch =
         searchQuery === "" ||
         job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -80,21 +93,15 @@ function StudentDashboardContent() {
         departmentFilter === "all" || job.department === departmentFilter;
       return matchesSearch && matchesDepartment;
     })
-    .map((job) => ({
+    .map((job: any) => ({
       ...job,
       matchScore: calculateMatchScore(studentProfile, job).total,
     }))
-    .sort((a, b) => {
-      // Featured first, then by match score
+    .sort((a: any, b: any) => {
       if (a.is_featured && !b.is_featured) return -1;
       if (!a.is_featured && b.is_featured) return 1;
       return b.matchScore - a.matchScore;
     });
-
-  // Get user's applications
-  const userApplications = MOCK_APPLICATIONS.filter(
-    (app) => app.student_id === user.id
-  );
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -112,7 +119,6 @@ function StudentDashboardContent() {
     <div className="min-h-screen bg-grain">
       <Navbar />
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-32 sm:px-6 lg:px-8 bg-grid-subtle">
-        {/* Welcome Header */}
         <div className="mb-12 border-l-4 border-primary pl-8 py-2">
           <h1 className="text-4xl font-serif font-bold text-foreground tracking-tight">
             {t("dashboard.welcome")}, {user.name.split(" ")[0]}
@@ -122,7 +128,6 @@ function StudentDashboardContent() {
           </p>
         </div>
 
-        {/* Dashboard Tabs */}
         <Tabs defaultValue="jobs" className="space-y-10">
           <TabsList className="bg-muted p-1 rounded-sm border-2 border-border">
             <TabsTrigger value="jobs" className="flex items-center gap-2 px-6 py-2 rounded-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold text-xs uppercase tracking-widest transition-all">
@@ -134,9 +139,9 @@ function StudentDashboardContent() {
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">{t("dashboard.my_applications")}</span>
               <span className="sm:hidden">Apps</span>
-              {userApplications.length > 0 && (
+              {applications.length > 0 && (
                 <Badge variant="secondary" className="ml-1 bg-accent/20 text-accent-foreground border-accent/30">
-                  {userApplications.length}
+                  {applications.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -149,7 +154,6 @@ function StudentDashboardContent() {
 
           {/* Browse Jobs Tab */}
           <TabsContent value="jobs" className="space-y-8 outline-none">
-            {/* Filters */}
             <Card className="border-2 border-border bg-card shadow-sm rounded-sm">
               <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
                 <div className="relative flex-1 group">
@@ -171,9 +175,7 @@ function StudentDashboardContent() {
                     >
                       <option value="all">All Disciplines</option>
                       {departments.map((dept) => (
-                        <option key={dept} value={dept}>
-                          {dept}
-                        </option>
+                        <option key={dept} value={dept}>{dept}</option>
                       ))}
                     </select>
                   </div>
@@ -181,14 +183,13 @@ function StudentDashboardContent() {
               </CardContent>
             </Card>
 
-            {/* Jobs List */}
             <div className="space-y-6">
               {filteredJobs.length === 0 ? (
                 <Card className="border-2 border-border bg-card p-12 text-center rounded-sm">
                   <p className="text-muted-foreground font-serif italic text-lg">{t("msg.no_jobs")}</p>
                 </Card>
               ) : (
-                filteredJobs.map((job) => (
+                filteredJobs.map((job: any) => (
                   <JobCard key={job.id} job={job} student={studentProfile} />
                 ))
               )}
@@ -197,7 +198,7 @@ function StudentDashboardContent() {
 
           {/* My Applications Tab */}
           <TabsContent value="applications" className="space-y-6 outline-none">
-            {userApplications.length === 0 ? (
+            {applications.length === 0 ? (
               <Card className="border-2 border-border bg-card p-20 text-center rounded-sm">
                 <FileText className="mx-auto h-16 w-16 text-muted-foreground/20 mb-6" />
                 <p className="text-xl font-serif text-muted-foreground italic mb-8">{t("msg.no_applications")}</p>
@@ -206,7 +207,7 @@ function StudentDashboardContent() {
                 </Button>
               </Card>
             ) : (
-              userApplications.map((app) => (
+              applications.map((app: any) => (
                 <Card key={app.id} className="border-2 border-border bg-card p-8 rounded-sm hover:border-primary/50 transition-colors group">
                   <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-2">
@@ -247,7 +248,6 @@ function StudentDashboardContent() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-8 space-y-10">
-                {/* Read-only Info */}
                 <div className="grid gap-6 rounded-sm border-2 border-border bg-secondary/30 p-8 sm:grid-cols-3">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Legal Name</Label>
@@ -275,7 +275,6 @@ function StudentDashboardContent() {
                   </div>
                 </div>
 
-                {/* Editable Info */}
                 <div className="space-y-8">
                   <div className="space-y-3">
                     <Label htmlFor="skills" className="text-xs font-bold uppercase tracking-widest text-foreground">{t("form.skills")}</Label>
@@ -283,39 +282,25 @@ function StudentDashboardContent() {
                       id="skills"
                       placeholder="JavaScript, React, Python..."
                       value={profileData.skills}
-                      onChange={(e) =>
-                        setProfileData((prev) => ({ ...prev, skills: e.target.value }))
-                      }
+                      onChange={(e) => setProfileData((prev) => ({ ...prev, skills: e.target.value }))}
                       className="bg-background border-2 h-12 focus-visible:ring-offset-0"
                     />
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 italic">
-                      Skills are parsed to determine academic-industry alignment scores.
-                    </p>
                   </div>
-
                   <div className="space-y-3">
                     <Label htmlFor="bio" className="text-xs font-bold uppercase tracking-widest text-foreground">{t("form.bio")}</Label>
                     <Textarea
                       id="bio"
                       placeholder="Define your professional mission..."
                       value={profileData.bio}
-                      onChange={(e) =>
-                        setProfileData((prev) => ({ ...prev, bio: e.target.value }))
-                      }
+                      onChange={(e) => setProfileData((prev) => ({ ...prev, bio: e.target.value }))}
                       rows={5}
                       className="bg-background border-2 focus-visible:ring-offset-0 leading-relaxed"
                     />
                   </div>
-
                   <Button onClick={handleSaveProfile} disabled={isSaving} className="btn-editorial h-12 px-10 font-bold">
                     {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving Records...
-                      </>
-                    ) : (
-                      t("action.save")
-                    )}
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                    ) : t("action.save")}
                   </Button>
                 </div>
               </CardContent>
@@ -328,11 +313,5 @@ function StudentDashboardContent() {
 }
 
 export default function StudentDashboardPage() {
-  return (
-    <TranslationProvider>
-      <AuthProvider>
-        <StudentDashboardContent />
-      </AuthProvider>
-    </TranslationProvider>
-  );
+  return <StudentDashboardContent />;
 }

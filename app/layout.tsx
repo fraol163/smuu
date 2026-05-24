@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import { ClientProviders } from "@/components/client-providers";
 
 export const metadata: Metadata = {
   title: "SMU Career Connect | Find Your Perfect Career Match",
   description:
     "Connect with top employers and discover internships & jobs tailored to your academic background at St. Mary's University.",
-  keywords: [
-    "SMU",
-    "St. Mary's University",
-    "career",
-    "jobs",
-    "internships",
-    "Ethiopia",
-  ],
+  keywords: ["SMU", "St. Mary's University", "career", "jobs", "internships", "Ethiopia"],
 };
 
 export default function RootLayout({
@@ -24,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body className="font-sans antialiased">
-        {children}
+        <ClientProviders>{children}</ClientProviders>
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>

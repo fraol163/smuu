@@ -2,19 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { TranslationProvider, useTranslation } from "@/lib/translations";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslation } from "@/lib/translations";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { Suspense } from "react";
 
 function LoginForm() {
   const { t } = useTranslation();
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,23 +28,21 @@ function LoginForm() {
     setIsLoading(true);
 
     const result = await login(email, password);
-    
+
     if (result.success) {
       const savedUser = localStorage.getItem("smu-user");
       if (savedUser) {
         const user = JSON.parse(savedUser);
-        switch (user.role) {
-          case "student":
-            router.push("/dashboard/student");
-            break;
-          case "employer":
-            router.push("/dashboard/employer");
-            break;
-          case "admin":
-            router.push("/dashboard/admin");
-            break;
-          default:
-            router.push("/");
+        const redirect = searchParams.get("redirect");
+        if (redirect) {
+          router.push(redirect);
+        } else {
+          switch (user.role) {
+            case "student": router.push("/dashboard/student"); break;
+            case "employer": router.push("/dashboard/employer"); break;
+            case "admin": router.push("/dashboard/admin"); break;
+            default: router.push("/");
+          }
         }
       }
     } else {
@@ -66,11 +66,7 @@ function LoginForm() {
           <div className="h-2 bg-primary w-full" />
           <CardHeader className="text-center pb-4 pt-8">
             <div className="relative flex h-20 w-20 items-center justify-center rounded-sm bg-white p-2 mx-auto mb-6 shadow-lg border border-primary/30">
-              <img 
-                src="/Untitled.jpeg" 
-                alt="SMU Emblem" 
-                className="h-full w-full object-contain"
-              />
+              <img src="/Untitled.jpeg" alt="SMU Emblem" className="h-full w-full object-contain" />
               <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-accent border-2 border-background" />
             </div>
             <CardTitle className="text-3xl font-serif font-bold text-foreground tracking-tight">Welcome Back</CardTitle>
@@ -88,57 +84,26 @@ function LoginForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{t("form.email")}</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-background border-2 h-11 focus-visible:ring-offset-0"
-                />
+                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-background border-2 h-11 focus-visible:ring-offset-0" />
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-end">
-                  <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{t("form.password")}</Label>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="bg-background border-2 h-11 focus-visible:ring-offset-0"
-                />
+                <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{t("form.password")}</Label>
+                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-background border-2 h-11 focus-visible:ring-offset-0" />
               </div>
 
               <Button type="submit" className="w-full h-12 text-md font-bold btn-editorial" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Authenticating...
-                  </>
-                ) : (
-                  t("form.login")
-                )}
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Authenticating...</> : t("form.login")}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm text-muted-foreground">
               {"Don't have an account? "}
-              <Link href="/register" className="font-medium text-primary hover:underline">
-                Register here
-              </Link>
+              <Link href="/register" className="font-medium text-primary hover:underline">Register here</Link>
             </div>
 
-            {/* Demo Accounts */}
             <div className="mt-6 rounded-md border border-border bg-muted/50 p-4">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Demo Accounts
-              </p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Demo Accounts</p>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Student:</span>
@@ -152,7 +117,7 @@ function LoginForm() {
                   <span className="text-muted-foreground">Admin:</span>
                   <code className="rounded bg-background px-2 py-0.5 text-xs">admin@smu.edu.et</code>
                 </div>
-                <p className="pt-2 text-xs text-muted-foreground">Any password with 6+ characters works</p>
+                <p className="pt-2 text-xs text-muted-foreground">Password: <code className="rounded bg-background px-1">password123</code> (or <code className="rounded bg-background px-1">admin123</code> for admin)</p>
               </div>
             </div>
           </CardContent>
@@ -164,10 +129,8 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <TranslationProvider>
-      <AuthProvider>
-        <LoginForm />
-      </AuthProvider>
-    </TranslationProvider>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
