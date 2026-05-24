@@ -115,6 +115,52 @@
       "bio": "",
       "graduation_year": 2026,
       "id": 8
+    },
+    {
+      "name": "New Student",
+      "email": "new@smu.edu.et",
+      "password": "password123",
+      "role": "student",
+      "is_approved": false,
+      "smu_id": "RCD/0088/2025",
+      "department": null,
+      "gpa": 3.5,
+      "skills": [
+        "JS"
+      ],
+      "bio": "test",
+      "graduation_year": 2026,
+      "id": 9
+    },
+    {
+      "name": "Test User",
+      "email": "testuser@smu.edu.et",
+      "password": "password123",
+      "role": "student",
+      "is_approved": false,
+      "smu_id": "RMD/0077/2025",
+      "department": null,
+      "gpa": 3.5,
+      "skills": [
+        "Marketing"
+      ],
+      "bio": "test bio",
+      "graduation_year": 2026,
+      "id": 10
+    },
+    {
+      "name": "Fraol Test",
+      "email": "fraol@smu.edu.et",
+      "password": "password123",
+      "role": "student",
+      "is_approved": false,
+      "smu_id": "ECD/0055/2025",
+      "department": "Computer Science",
+      "gpa": 3.7,
+      "skills": [],
+      "bio": "testing",
+      "graduation_year": 2026,
+      "id": 11
     }
   ],
   "jobs": [
@@ -396,7 +442,7 @@
     }
   ],
   "nextIds": {
-    "user": 9,
+    "user": 12,
     "job": 9,
     "application": 5
   }

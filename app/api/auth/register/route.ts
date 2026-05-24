@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
     }
 
-    // Check existing
+    // Check existing email
     const existing = findUserByEmail(data.email);
     if (existing) {
       return NextResponse.json({ error: "Email already registered" }, { status: 409 });
@@ -20,11 +20,24 @@ export async function POST(req: NextRequest) {
       if (!data.smu_id || !data.name) {
         return NextResponse.json({ error: "Name and SMU ID required" }, { status: 400 });
       }
+
       // Check SMU ID uniqueness
       const db = readDB();
-      if (db.users.find((u) => u.smu_id === data.smu_id)) {
+      if (db.users.find((u: any) => u.smu_id === data.smu_id)) {
         return NextResponse.json({ error: "SMU ID already registered" }, { status: 409 });
       }
+
+      // Auto-detect department from SMU ID
+      const deptMap: Record<string, string> = {
+        RCD: "Computer Science", ECD: "Computer Science",
+        RMD: "Marketing", EMD: "Marketing",
+        RAD: "Accounting", EAD: "Accounting",
+        RTD: "Tourism", ETD: "Tourism",
+        RED: "Economics", EED: "Economics",
+      };
+      const prefix = data.smu_id?.substring(0, 3);
+      const department = deptMap[prefix] || data.department || null;
+
       const user = createUser({
         name: data.name,
         email: data.email,
@@ -32,19 +45,24 @@ export async function POST(req: NextRequest) {
         role: "student",
         is_approved: false,
         smu_id: data.smu_id,
-        department: data.department || null,
-        gpa: data.gpa || 0,
-        skills: data.skills || [],
+        department,
+        gpa: parseFloat(data.gpa) || 0,
+        skills: Array.isArray(data.skills) ? data.skills
+              : typeof data.skills === "string" ? data.skills.split(",").map((s: string) => s.trim()).filter(Boolean)
+              : [],
         bio: data.bio || "",
-        graduation_year: data.graduation_year || new Date().getFullYear(),
+        graduation_year: parseInt(data.graduation_year) || new Date().getFullYear(),
       });
-      return NextResponse.json({ success: true, user: { ...user, password: undefined } }, { status: 201 });
+
+      const { password: _, ...safeUser } = user;
+      return NextResponse.json({ success: true, user: safeUser }, { status: 201 });
     }
 
     if (type === "employer") {
       if (!data.name || !data.company_name) {
         return NextResponse.json({ error: "Name and company name required" }, { status: 400 });
       }
+
       const user = createUser({
         name: data.name,
         email: data.email,
@@ -56,11 +74,14 @@ export async function POST(req: NextRequest) {
         company_description: data.company_description || "",
         company_website: data.company_website || "",
       });
-      return NextResponse.json({ success: true, user: { ...user, password: undefined } }, { status: 201 });
+
+      const { password: _, ...safeUser } = user;
+      return NextResponse.json({ success: true, user: safeUser }, { status: 201 });
     }
 
-    return NextResponse.json({ error: "Invalid registration type" }, { status: 400 });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "Invalid registration type. Use 'student' or 'employer'." }, { status: 400 });
+  } catch (err: any) {
+    console.error("Registration error:", err);
+    return NextResponse.json({ error: "Server error: " + (err?.message || "unknown") }, { status: 500 });
   }
 }
