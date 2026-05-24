@@ -337,9 +337,7 @@ export function LandingPage() {
               <Link href="/jobs">Browse Archive</Link>
             </Button>
           </div>
-          <p className="mt-20 text-[10px] font-bold uppercase tracking-[0.5em] text-primary/30">
-            St. Mary&apos;s University • Established 2024 • Academic Excellence
-          </p>
+
         </div>
       </section>
     </div>
